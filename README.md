@@ -49,4 +49,31 @@ Beispiel (Attribute eines gestörten Hosts):
 }
 ```
 
-Die Werte im Beispiel sind konstruiert, nicht aus einer echten Node.
+Die Texte werden auf Deutsch übersetzt. Übersetzungsschlüssel und Parameter werden aufgelöst, Zahlen erhalten das deutsche Komma. Der Rohschlüssel bleibt im Attribut `detail_key`, die Parameter in `params`.
+
+Beispiel (echter Host `ap_flur`, Port-Fehlerrate):
+
+```json
+{
+  "problems": [
+    {
+      "message": "ra0: Port-Fehlerrate 0,3 % (Schwelle 0,15 %)",
+      "severity": "warn",
+      "check": "if:ra0",
+      "since": null,
+      "detail_key": "monitor64.detail.threshold",
+      "params": {
+        "limit": "0.15 %",
+        "metric": "i18n:monitor64.kind.if_errrate",
+        "value": "0.3 %"
+      }
+    }
+  ],
+  "problem_summary": "ra0: Port-Fehlerrate 0,3 % (Schwelle 0,15 %)",
+  "last_check_at": "2026-11-24T08:31:12Z"
+}
+```
+
+`since` ist leer, wenn Monitor64 für das Problem keinen Beginn gespeichert hat.
+
+Die Übersetzungstabelle `monitor64_de.json` stammt aus den Monitor64-Sprachdateien. Neue Monitor64-Versionen mit neuen Texten brauchen eine aktualisierte Datei; unbekannte Schlüssel erscheinen als `schluessel (parameter=wert, …)`.

@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import Node64Coordinator
+from .i18n import parse_detail, translate
 
 
 class ModuleSensorDescription(NamedTuple):
@@ -31,8 +32,8 @@ def m64_problems(data: dict[str, Any], uid: str) -> list[dict[str, Any]]:
 
 
 def _problem_message(problem: dict[str, Any]) -> str:
-    name = problem.get("name") or ""
-    detail = problem.get("detail") or ""
+    name = translate(problem.get("name") or "")
+    detail = translate(problem.get("detail") or "")
     if name and detail:
         return f"{name}: {detail}"
     return name or detail or "Problem"
@@ -51,6 +52,7 @@ def problem_attributes(problems: list[dict[str, Any]], host: dict[str, Any]) -> 
                 "severity": p.get("state"),
                 "check": p.get("key") or None,
                 "since": p.get("since") or None,
+                **parse_detail(p.get("detail")),
             }
             for p in problems
         ],

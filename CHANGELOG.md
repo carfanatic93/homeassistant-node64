@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Monitor64-Probleme werden übersetzt (Deutsch, Zahlen mit Komma). Unbekannte Schlüssel zeigen Schlüssel und Parameter.
+- Neue Attribute je Problem: `detail_key` und `params`.
+
 ## 0.2.0
 
 - Monitor64: `binary_sensor.<host>_probleme` liefert die Attribute `problems`, `problem_summary` und `last_check_at`.
