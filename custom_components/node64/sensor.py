@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, PROBLEM_STATES
 from .coordinator import Node64Coordinator
 from .entity import check_device_info
+from .proxy import CDN_SENSORS, PROXY_SENSORS, Node64CdnSensor, Node64ProxySensor, proxy_hosts
 
 
 async def async_setup_entry(
@@ -42,6 +43,28 @@ async def async_setup_entry(
 
     _add_new_checks()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_checks))
+
+    cdn_added = False
+    known_hosts: set[int] = set()
+
+    @callback
+    def _add_proxy_entities() -> None:
+        nonlocal cdn_added
+        if coordinator.data.get("proxy") is None:
+            return
+        new: list[SensorEntity] = []
+        if not cdn_added:
+            cdn_added = True
+            new.extend(Node64CdnSensor(coordinator, entry, d) for d in CDN_SENSORS)
+        for host_id in proxy_hosts(coordinator.data):
+            if host_id not in known_hosts:
+                known_hosts.add(host_id)
+                new.extend(Node64ProxySensor(coordinator, entry, host_id, d) for d in PROXY_SENSORS)
+        if new:
+            async_add_entities(new)
+
+    _add_proxy_entities()
+    entry.async_on_unload(coordinator.async_add_listener(_add_proxy_entities))
 
 
 class Node64Base(CoordinatorEntity[Node64Coordinator], SensorEntity):

@@ -44,3 +44,12 @@ class Node64Client:
 
     async def stats(self, token: str, rng: str) -> dict[str, Any]:
         return await self._get(f"/api/checks/{token}/stats?range={rng}")
+
+    async def cdn_hosts(self) -> list[dict[str, Any]]:
+        return await self._get("/api/cdn64/hosts")
+
+    async def cdn_status(self) -> dict[str, Any]:
+        return await self._get("/api/cdn64/status")
+
+    async def cdn_stats(self) -> dict[str, Any]:
+        return await self._get("/api/cdn64/stats?hours=24")

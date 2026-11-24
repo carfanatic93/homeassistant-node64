@@ -46,4 +46,18 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             "status": status,
             "checks": {check["token"]: check for check in checks},
             "stats": self._stats,
+            "proxy": await self._async_proxy(),
+        }
+
+    async def _async_proxy(self) -> dict[str, Any] | None:
+        try:
+            hosts = await self.client.cdn_hosts()
+            stats = await self.client.cdn_stats()
+            status = await self.client.cdn_status()
+        except Node64ConnectError:
+            return None
+        return {
+            "hosts": {host["id"]: host for host in hosts},
+            "stats": stats.get("hosts", {}),
+            "status": status,
         }

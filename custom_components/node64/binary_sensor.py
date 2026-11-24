@@ -7,6 +7,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, PROBLEM_STATES
 from .coordinator import Node64Coordinator
 from .entity import check_device_info
+from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
 
 
 async def async_setup_entry(
@@ -28,6 +29,24 @@ async def async_setup_entry(
 
     _add_new_checks()
     entry.async_on_unload(coordinator.async_add_listener(_add_new_checks))
+
+    known_hosts: set[int] = set()
+
+    @callback
+    def _add_proxy_reach() -> None:
+        if coordinator.data.get("proxy") is None:
+            return
+        new = [
+            Node64ProxyReachBinarySensor(coordinator, entry, host_id)
+            for host_id in proxy_hosts(coordinator.data)
+            if host_id not in known_hosts
+        ]
+        known_hosts.update(proxy_hosts(coordinator.data))
+        if new:
+            async_add_entities(new)
+
+    _add_proxy_reach()
+    entry.async_on_unload(coordinator.async_add_listener(_add_proxy_reach))
 
 
 class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
