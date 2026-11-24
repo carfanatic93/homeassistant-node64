@@ -4,9 +4,13 @@ from homeassistant.helpers.entity import DeviceInfo
 from .const import DOMAIN
 
 
-def subentry_id(entry: ConfigEntry, subentry_type: str) -> str | None:
+def subentry_id(entry: ConfigEntry, module: str) -> str | None:
     return next(
-        (sid for sid, sub in entry.subentries.items() if sub.subentry_type == subentry_type),
+        (
+            sid
+            for sid, sub in entry.subentries.items()
+            if sub.data.get("module") == module or sub.subentry_type == module
+        ),
         None,
     )
 

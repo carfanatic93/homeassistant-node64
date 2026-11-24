@@ -20,49 +20,21 @@
     }
   },
   "config_subentries": {
-    "healthchecks": {
-      "title": "Healthchecks",
-      "initiate_flow": { "user": "Healthchecks hinzufügen" },
+    "module": {
+      "initiate_flow": { "user": "Modul hinzufügen" },
+      "entry_type": "Modul",
       "step": {
         "user": {
-          "title": "Healthchecks hinzufügen",
-          "description": "Legt die Healthchecks der Node als Geräte an."
+          "title": "Modul hinzufügen",
+          "description": "Welches Modul der Node sollen Geräte und Entitäten erhalten?",
+          "data": {
+            "module": "Modul"
+          }
         }
       },
-      "abort": { "already_configured": "Healthchecks sind bereits eingerichtet." }
-    },
-    "monitor64": {
-      "title": "Monitor64",
-      "initiate_flow": { "user": "Monitor64 hinzufügen" },
-      "step": {
-        "user": {
-          "title": "Monitor64 hinzufügen",
-          "description": "Legt die Monitor64-Hosts der Node als Geräte an."
-        }
-      },
-      "abort": { "already_configured": "Monitor64 ist bereits eingerichtet." }
-    },
-    "proxy64": {
-      "title": "Proxy64 / CDN64",
-      "initiate_flow": { "user": "Proxy64 hinzufügen" },
-      "step": {
-        "user": {
-          "title": "Proxy64 hinzufügen",
-          "description": "Legt die Proxy-Hosts und CDN64 als Geräte an."
-        }
-      },
-      "abort": { "already_configured": "Proxy64 ist bereits eingerichtet." }
-    },
-    "honeypot": {
-      "title": "Honeypot64",
-      "initiate_flow": { "user": "Honeypot64 hinzufügen" },
-      "step": {
-        "user": {
-          "title": "Honeypot64 hinzufügen",
-          "description": "Legt das Honeypot64-Gerät an."
-        }
-      },
-      "abort": { "already_configured": "Honeypot64 ist bereits eingerichtet." }
+      "abort": {
+        "already_configured": "Dieses Modul ist bereits eingerichtet."
+      }
     }
   }
 }

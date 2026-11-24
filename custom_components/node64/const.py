@@ -13,7 +13,16 @@ STATS_RANGES = ("24h", "30d", "1y")
 
 PROBLEM_STATES = frozenset({"down", "degraded"})
 
+SUB_TYPE_MODULE = "module"
+
 SUB_HEALTHCHECKS = "healthchecks"
 SUB_MONITOR64 = "monitor64"
 SUB_PROXY64 = "proxy64"
 SUB_HONEYPOT = "honeypot"
+
+MODULES = {
+    SUB_HEALTHCHECKS: "Healthchecks",
+    SUB_MONITOR64: "Monitor64",
+    SUB_PROXY64: "Proxy64 / CDN64",
+    SUB_HONEYPOT: "Honeypot64",
+}

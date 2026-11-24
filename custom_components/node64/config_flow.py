@@ -8,14 +8,15 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import Node64AuthError, Node64Client, Node64ConnectError
+from .entity import subentry_id
 from .const import (
     DEFAULT_PORT,
     DOMAIN,
-    SUB_HEALTHCHECKS,
-    SUB_HONEYPOT,
-    SUB_MONITOR64,
-    SUB_PROXY64,
+    MODULES,
+    SUB_TYPE_MODULE,
 )
+
+CONF_MODULE = "module"
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -29,6 +30,17 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
+MODULE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_MODULE): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[selector.SelectOptionDict(value=key, label=label) for key, label in MODULES.items()],
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
+    }
+)
+
 
 class Node64ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
@@ -36,12 +48,7 @@ class Node64ConfigFlow(ConfigFlow, domain=DOMAIN):
     @classmethod
     @callback
     def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
-        return {
-            SUB_HEALTHCHECKS: HealthchecksSubentryFlow,
-            SUB_MONITOR64: Monitor64SubentryFlow,
-            SUB_PROXY64: Proxy64SubentryFlow,
-            SUB_HONEYPOT: HoneypotSubentryFlow,
-        }
+        return {SUB_TYPE_MODULE: ModuleSubentryFlow}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -74,26 +81,11 @@ class Node64ConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA, errors=errors)
 
 
-class _ModuleSubentryFlow(ConfigSubentryFlow):
-    TITLE = ""
-
+class ModuleSubentryFlow(ConfigSubentryFlow):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(title=self.TITLE, data={})
-        return self.async_show_form(step_id="user")
-
-
-class HealthchecksSubentryFlow(_ModuleSubentryFlow):
-    TITLE = "Healthchecks"
-
-
-class Monitor64SubentryFlow(_ModuleSubentryFlow):
-    TITLE = "Monitor64"
-
-
-class Proxy64SubentryFlow(_ModuleSubentryFlow):
-    TITLE = "Proxy64 / CDN64"
-
-
-class HoneypotSubentryFlow(_ModuleSubentryFlow):
-    TITLE = "Honeypot64"
+            module = user_input[CONF_MODULE]
+            if subentry_id(self._get_entry(), module):
+                return self.async_abort(reason="already_configured")
+            return self.async_create_entry(title=MODULES[module], data={CONF_MODULE: module})
+        return self.async_show_form(step_id="user", data_schema=MODULE_SCHEMA)
