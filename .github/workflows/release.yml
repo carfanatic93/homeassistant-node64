@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version aus manifest.json lesen
+        id: version
+        run: echo "version=$(python3 -c 'import json; print(json.load(open("custom_components/node64/manifest.json"))["version"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Release erstellen, falls noch nicht vorhanden
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION existiert bereits"
+            exit 0
+          fi
+          awk -v v="$VERSION" '$0 == "## " v {f=1; next} /^## / {f=0} f' CHANGELOG.md > notes.md
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --notes-file notes.md
