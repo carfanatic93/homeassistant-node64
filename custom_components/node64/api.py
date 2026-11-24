@@ -41,3 +41,6 @@ class Node64Client:
 
     async def checks(self) -> list[dict[str, Any]]:
         return await self._get("/api/checks")
+
+    async def stats(self, token: str, rng: str) -> dict[str, Any]:
+        return await self._get(f"/api/checks/{token}/stats?range={rng}")

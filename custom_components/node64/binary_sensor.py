@@ -1,12 +1,12 @@
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, PROBLEM_STATES
 from .coordinator import Node64Coordinator
+from .entity import check_device_info
 
 
 async def async_setup_entry(
@@ -22,7 +22,7 @@ async def async_setup_entry(
             for token in coordinator.data["checks"]
             if token not in known
         ]
-        known.update(token for token in coordinator.data["checks"])
+        known.update(coordinator.data["checks"])
         if new:
             async_add_entities(new)
 
@@ -39,13 +39,7 @@ class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensor
         super().__init__(coordinator)
         self._token = token
         self._attr_unique_id = f"{entry.entry_id}_check_{token}"
-        check = self._check
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_{token}")},
-            via_device=(DOMAIN, entry.entry_id),
-            name=check.get("name", token),
-            model=check.get("type"),
-        )
+        self._attr_device_info = check_device_info(entry, token, self._check)
 
     @property
     def _check(self) -> dict:
