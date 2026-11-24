@@ -4,14 +4,10 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, PROBLEM_STATES
+from .const import DOMAIN, PROBLEM_STATES, SUB_HEALTHCHECKS, SUB_HONEYPOT, SUB_MONITOR64, SUB_PROXY64
 from .coordinator import Node64Coordinator
-from .entity import check_device_info
-from .modules import (
-    Node64HoneypotProblemBinarySensor,
-    Node64M64ProblemBinarySensor,
-    m64_hosts,
-)
+from .entity import check_device_info, subentry_id
+from .modules import Node64HoneypotProblemBinarySensor, Node64M64ProblemBinarySensor, m64_hosts
 from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
 
 
@@ -19,60 +15,79 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: Node64Coordinator = hass.data[DOMAIN][entry.entry_id]
-    known: set[str] = set()
 
-    @callback
-    def _add_new_checks() -> None:
-        new = [
-            Node64CheckBinarySensor(coordinator, entry, token)
-            for token in coordinator.data["checks"]
-            if token not in known
-        ]
-        known.update(coordinator.data["checks"])
-        if new:
-            async_add_entities(new)
+    hc_id = subentry_id(entry, SUB_HEALTHCHECKS)
+    if hc_id:
+        known_checks: set[str] = set()
 
-    _add_new_checks()
-    entry.async_on_unload(coordinator.async_add_listener(_add_new_checks))
+        @callback
+        def _add_checks() -> None:
+            new = [
+                Node64CheckBinarySensor(coordinator, entry, token)
+                for token in coordinator.data["checks"]
+                if token not in known_checks
+            ]
+            known_checks.update(coordinator.data["checks"])
+            if new:
+                async_add_entities(new, config_subentry_id=hc_id)
 
-    known_hosts: set[int] = set()
+        _add_checks()
+        entry.async_on_unload(coordinator.async_add_listener(_add_checks))
 
-    @callback
-    def _add_proxy_reach() -> None:
-        if coordinator.data.get("proxy") is None:
-            return
-        new = [
-            Node64ProxyReachBinarySensor(coordinator, entry, host_id)
-            for host_id in proxy_hosts(coordinator.data)
-            if host_id not in known_hosts
-        ]
-        known_hosts.update(proxy_hosts(coordinator.data))
-        if new:
-            async_add_entities(new)
+    px_id = subentry_id(entry, SUB_PROXY64)
+    if px_id:
+        known_hosts: set[int] = set()
 
-    _add_proxy_reach()
-    entry.async_on_unload(coordinator.async_add_listener(_add_proxy_reach))
+        @callback
+        def _add_proxy_reach() -> None:
+            if coordinator.data.get("proxy") is None:
+                return
+            new = [
+                Node64ProxyReachBinarySensor(coordinator, entry, host_id)
+                for host_id in proxy_hosts(coordinator.data)
+                if host_id not in known_hosts
+            ]
+            known_hosts.update(proxy_hosts(coordinator.data))
+            if new:
+                async_add_entities(new, config_subentry_id=px_id)
 
-    known_m64: set[str] = set()
-    hp_added = False
+        _add_proxy_reach()
+        entry.async_on_unload(coordinator.async_add_listener(_add_proxy_reach))
 
-    @callback
-    def _add_module_problems() -> None:
-        nonlocal hp_added
-        new: list[BinarySensorEntity] = []
-        if coordinator.data.get("m64") is not None:
-            for uid in m64_hosts(coordinator.data):
-                if uid not in known_m64:
-                    known_m64.add(uid)
-                    new.append(Node64M64ProblemBinarySensor(coordinator, entry, uid))
-        if coordinator.data.get("hp") is not None and not hp_added:
+    m64_id = subentry_id(entry, SUB_MONITOR64)
+    if m64_id:
+        known_m64: set[str] = set()
+
+        @callback
+        def _add_m64_problems() -> None:
+            if coordinator.data.get("m64") is None:
+                return
+            new = [
+                Node64M64ProblemBinarySensor(coordinator, entry, uid)
+                for uid in m64_hosts(coordinator.data)
+                if uid not in known_m64
+            ]
+            known_m64.update(m64_hosts(coordinator.data))
+            if new:
+                async_add_entities(new, config_subentry_id=m64_id)
+
+        _add_m64_problems()
+        entry.async_on_unload(coordinator.async_add_listener(_add_m64_problems))
+
+    hp_id = subentry_id(entry, SUB_HONEYPOT)
+    if hp_id:
+        hp_added = False
+
+        @callback
+        def _add_hp_problem() -> None:
+            nonlocal hp_added
+            if hp_added or coordinator.data.get("hp") is None:
+                return
             hp_added = True
-            new.append(Node64HoneypotProblemBinarySensor(coordinator, entry))
-        if new:
-            async_add_entities(new)
+            async_add_entities([Node64HoneypotProblemBinarySensor(coordinator, entry)], config_subentry_id=hp_id)
 
-    _add_module_problems()
-    entry.async_on_unload(coordinator.async_add_listener(_add_module_problems))
+        _add_hp_problem()
+        entry.async_on_unload(coordinator.async_add_listener(_add_hp_problem))
 
 
 class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):

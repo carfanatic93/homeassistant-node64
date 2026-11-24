@@ -1,13 +1,21 @@
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, ConfigSubentryFlow
 from homeassistant.const import CONF_API_KEY, CONF_HOST, CONF_PORT
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import Node64AuthError, Node64Client, Node64ConnectError
-from .const import DEFAULT_PORT, DOMAIN
+from .const import (
+    DEFAULT_PORT,
+    DOMAIN,
+    SUB_HEALTHCHECKS,
+    SUB_HONEYPOT,
+    SUB_MONITOR64,
+    SUB_PROXY64,
+)
 
 DATA_SCHEMA = vol.Schema(
     {
@@ -24,6 +32,16 @@ DATA_SCHEMA = vol.Schema(
 
 class Node64ConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(cls, config_entry: ConfigEntry) -> dict[str, type[ConfigSubentryFlow]]:
+        return {
+            SUB_HEALTHCHECKS: HealthchecksSubentryFlow,
+            SUB_MONITOR64: Monitor64SubentryFlow,
+            SUB_PROXY64: Proxy64SubentryFlow,
+            SUB_HONEYPOT: HoneypotSubentryFlow,
+        }
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -54,3 +72,28 @@ class Node64ConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA, errors=errors)
+
+
+class _ModuleSubentryFlow(ConfigSubentryFlow):
+    TITLE = ""
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title=self.TITLE, data={})
+        return self.async_show_form(step_id="user")
+
+
+class HealthchecksSubentryFlow(_ModuleSubentryFlow):
+    TITLE = "Healthchecks"
+
+
+class Monitor64SubentryFlow(_ModuleSubentryFlow):
+    TITLE = "Monitor64"
+
+
+class Proxy64SubentryFlow(_ModuleSubentryFlow):
+    TITLE = "Proxy64 / CDN64"
+
+
+class HoneypotSubentryFlow(_ModuleSubentryFlow):
+    TITLE = "Honeypot64"
