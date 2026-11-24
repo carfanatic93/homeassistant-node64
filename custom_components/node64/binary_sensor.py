@@ -32,22 +32,24 @@ async def async_setup_entry(
 
 class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
-    _attr_has_entity_name = False
+    _attr_has_entity_name = True
+    _attr_name = None
 
     def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, token: str) -> None:
         super().__init__(coordinator)
         self._token = token
-        self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_check_{token}"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry.entry_id)})
+        check = self._check
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{entry.entry_id}_{token}")},
+            via_device=(DOMAIN, entry.entry_id),
+            name=check.get("name", token),
+            model=check.get("type"),
+        )
 
     @property
     def _check(self) -> dict:
         return self.coordinator.data["checks"].get(self._token, {})
-
-    @property
-    def name(self) -> str:
-        return self._check.get("name", self._token)
 
     @property
     def available(self) -> bool:
