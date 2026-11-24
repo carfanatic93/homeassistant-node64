@@ -1,0 +1,259 @@
+from collections.abc import Callable
+from typing import Any, NamedTuple
+
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .const import DOMAIN
+from .coordinator import Node64Coordinator
+
+
+class ModuleSensorDescription(NamedTuple):
+    key: str
+    name: str
+    icon: str
+    unit: str | None
+    value_fn: Callable[[Any], Any]
+    state_class: SensorStateClass | None = None
+
+
+def m64_hosts(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    m64 = data.get("m64")
+    return m64["hosts"] if m64 else {}
+
+
+def _meter(host: dict[str, Any], label: str) -> Any:
+    for meter in host.get("meters", []):
+        if meter.get("label") == label:
+            return meter.get("value")
+    return None
+
+
+def _hp_stats(hp: dict[str, Any]) -> dict[str, Any]:
+    return (hp.get("stats") or {}) if hp else {}
+
+
+def _hp_services(hp: dict[str, Any]) -> list[dict[str, Any]]:
+    return ((hp.get("status") or {}).get("services")) or []
+
+
+def _top_source(hp: dict[str, Any]) -> str | None:
+    top = _hp_stats(hp).get("top_sources") or []
+    return top[0]["key"] if top else None
+
+
+def _m64_totals(hosts: dict[str, dict[str, Any]]) -> dict[str, int]:
+    return {
+        "hosts": len(hosts),
+        "problems": sum(int(h.get("problems", 0) or 0) for h in hosts.values()),
+        "hosts_with_problems": sum(1 for h in hosts.values() if (h.get("problems") or 0) > 0),
+    }
+
+
+M64_HOST_SENSORS: tuple[ModuleSensorDescription, ...] = (
+    ModuleSensorDescription("state", "Status", "mdi:heart-pulse", None, lambda h: h.get("state")),
+    ModuleSensorDescription("problems", "Probleme", "mdi:alert-circle-outline", None, lambda h: h.get("problems")),
+    ModuleSensorDescription("services", "Dienste", "mdi:format-list-bulleted", None, lambda h: h.get("services")),
+    ModuleSensorDescription(
+        "cpu", "CPU", "mdi:cpu-64-bit", "%", lambda h: _meter(h, "cpu"), SensorStateClass.MEASUREMENT
+    ),
+    ModuleSensorDescription(
+        "ram", "RAM", "mdi:memory", "%", lambda h: _meter(h, "ram"), SensorStateClass.MEASUREMENT
+    ),
+)
+
+M64_GLOBAL_SENSORS: tuple[ModuleSensorDescription, ...] = (
+    ModuleSensorDescription("hosts", "Hosts", "mdi:server", None, lambda hosts: _m64_totals(hosts)["hosts"]),
+    ModuleSensorDescription(
+        "hosts_with_problems",
+        "Hosts mit Problemen",
+        "mdi:server-alert",
+        None,
+        lambda hosts: _m64_totals(hosts)["hosts_with_problems"],
+    ),
+    ModuleSensorDescription(
+        "problems", "Probleme gesamt", "mdi:alert-circle-outline", None, lambda hosts: _m64_totals(hosts)["problems"]
+    ),
+)
+
+HP_SENSORS: tuple[ModuleSensorDescription, ...] = (
+    ModuleSensorDescription(
+        "events_24h", "Ereignisse (24 h)", "mdi:shield-bug-outline", None,
+        lambda hp: _hp_stats(hp).get("events"), SensorStateClass.MEASUREMENT,
+    ),
+    ModuleSensorDescription(
+        "sources_24h", "Angreifer-IPs (24 h)", "mdi:ip-network", None,
+        lambda hp: _hp_stats(hp).get("sources"), SensorStateClass.MEASUREMENT,
+    ),
+    ModuleSensorDescription(
+        "logins_24h", "Login-Versuche (24 h)", "mdi:login", None,
+        lambda hp: _hp_stats(hp).get("logins"), SensorStateClass.MEASUREMENT,
+    ),
+    ModuleSensorDescription(
+        "services_listening", "Fallen-Dienste aktiv", "mdi:shield-check", None,
+        lambda hp: sum(1 for s in _hp_services(hp) if s.get("listen")),
+    ),
+    ModuleSensorDescription("top_source", "Top-Angreifer", "mdi:target-account", None, _top_source),
+    ModuleSensorDescription(
+        "connections", "Verbindungen seit Start", "mdi:counter", None,
+        lambda hp: ((hp.get("status") or {}).get("counters") or {}).get("connections"),
+        SensorStateClass.TOTAL_INCREASING,
+    ),
+)
+
+
+def m64_host_device(entry: ConfigEntry, uid: str, host: dict[str, Any]) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{entry.entry_id}_m64_{uid}")},
+        via_device=(DOMAIN, entry.entry_id),
+        name=host.get("name", uid),
+        model=f"Monitor64 ({host.get('kind', 'host')})",
+    )
+
+
+def m64_global_device(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{entry.entry_id}_m64")},
+        via_device=(DOMAIN, entry.entry_id),
+        name="Monitor64",
+        manufacturer="ipv64.net",
+        model="Monitor64",
+    )
+
+
+def honeypot_device(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, f"{entry.entry_id}_honeypot")},
+        via_device=(DOMAIN, entry.entry_id),
+        name="Honeypot64",
+        manufacturer="ipv64.net",
+        model="Honeypot64",
+    )
+
+
+class Node64M64HostSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(
+        self, coordinator: Node64Coordinator, entry: ConfigEntry, uid: str, description: ModuleSensorDescription
+    ) -> None:
+        super().__init__(coordinator)
+        self._uid = uid
+        self._description = description
+        self._attr_name = description.name
+        self._attr_icon = description.icon
+        self._attr_unique_id = f"{entry.entry_id}_m64_{uid}_{description.key}"
+        self._attr_device_info = m64_host_device(entry, uid, self._host)
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_state_class = description.state_class
+
+    @property
+    def _host(self) -> dict[str, Any]:
+        return m64_hosts(self.coordinator.data).get(self._uid, {})
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._uid in m64_hosts(self.coordinator.data)
+
+    @property
+    def native_value(self) -> Any:
+        return self._description.value_fn(self._host)
+
+
+class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, description: ModuleSensorDescription) -> None:
+        super().__init__(coordinator)
+        self._description = description
+        self._attr_name = description.name
+        self._attr_icon = description.icon
+        self._attr_unique_id = f"{entry.entry_id}_m64_{description.key}"
+        self._attr_device_info = m64_global_device(entry)
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_state_class = description.state_class
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.get("m64") is not None
+
+    @property
+    def native_value(self) -> Any:
+        return self._description.value_fn(m64_hosts(self.coordinator.data))
+
+
+class Node64HoneypotSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, description: ModuleSensorDescription) -> None:
+        super().__init__(coordinator)
+        self._description = description
+        self._attr_name = description.name
+        self._attr_icon = description.icon
+        self._attr_unique_id = f"{entry.entry_id}_honeypot_{description.key}"
+        self._attr_device_info = honeypot_device(entry)
+        self._attr_native_unit_of_measurement = description.unit
+        self._attr_state_class = description.state_class
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.get("hp") is not None
+
+    @property
+    def native_value(self) -> Any:
+        return self._description.value_fn(self.coordinator.data.get("hp") or {})
+
+
+class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_name = "Probleme"
+
+    def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, uid: str) -> None:
+        super().__init__(coordinator)
+        self._uid = uid
+        self._attr_unique_id = f"{entry.entry_id}_m64_{uid}_problem"
+        self._attr_device_info = m64_host_device(entry, uid, self._host)
+
+    @property
+    def _host(self) -> dict[str, Any]:
+        return m64_hosts(self.coordinator.data).get(self._uid, {})
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._uid in m64_hosts(self.coordinator.data)
+
+    @property
+    def is_on(self) -> bool:
+        return (self._host.get("problems") or 0) > 0
+
+
+class Node64HoneypotProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_has_entity_name = True
+    _attr_name = "Fallen-Dienst gestört"
+
+    def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_honeypot_service_problem"
+        self._attr_device_info = honeypot_device(entry)
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.get("hp") is not None
+
+    @property
+    def is_on(self) -> bool:
+        return any(not s.get("listen") for s in _hp_services(self.coordinator.data.get("hp") or {}))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "services": [
+                {"service": s.get("service"), "port": s.get("port"), "listen": s.get("listen"), "error": s.get("error")}
+                for s in _hp_services(self.coordinator.data.get("hp") or {})
+            ]
+        }

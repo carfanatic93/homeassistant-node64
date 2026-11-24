@@ -25,6 +25,8 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.client = client
         self._stats: dict[str, dict[str, Any]] = {}
         self._stats_at: float | None = None
+        self._hp_stats: dict[str, Any] | None = None
+        self._hp_stats_at: float | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
@@ -47,6 +49,8 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             "checks": {check["token"]: check for check in checks},
             "stats": self._stats,
             "proxy": await self._async_proxy(),
+            "m64": await self._async_m64(),
+            "hp": await self._async_honeypot(),
         }
 
     async def _async_proxy(self) -> dict[str, Any] | None:
@@ -61,3 +65,20 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             "stats": stats.get("hosts", {}),
             "status": status,
         }
+
+    async def _async_m64(self) -> dict[str, Any] | None:
+        try:
+            hosts = await self.client.m64_hosts()
+        except Node64ConnectError:
+            return None
+        return {"hosts": {host["uid"]: host for host in hosts}}
+
+    async def _async_honeypot(self) -> dict[str, Any] | None:
+        try:
+            status = await self.client.hp_status()
+            if self._hp_stats_at is None or time.monotonic() - self._hp_stats_at >= STATS_INTERVAL.total_seconds():
+                self._hp_stats = await self.client.hp_stats()
+                self._hp_stats_at = time.monotonic()
+        except Node64ConnectError:
+            return None
+        return {"status": status, "stats": self._hp_stats}

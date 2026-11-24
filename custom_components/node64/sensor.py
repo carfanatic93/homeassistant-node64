@@ -12,6 +12,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, PROBLEM_STATES
 from .coordinator import Node64Coordinator
 from .entity import check_device_info
+from .modules import (
+    HP_SENSORS,
+    M64_GLOBAL_SENSORS,
+    M64_HOST_SENSORS,
+    Node64HoneypotSensor,
+    Node64M64GlobalSensor,
+    Node64M64HostSensor,
+    m64_hosts,
+)
 from .proxy import CDN_SENSORS, PROXY_SENSORS, Node64CdnSensor, Node64ProxySensor, proxy_hosts
 
 
@@ -65,6 +74,31 @@ async def async_setup_entry(
 
     _add_proxy_entities()
     entry.async_on_unload(coordinator.async_add_listener(_add_proxy_entities))
+
+    m64_global_added = False
+    hp_added = False
+    known_m64: set[str] = set()
+
+    @callback
+    def _add_module_entities() -> None:
+        nonlocal m64_global_added, hp_added
+        new: list[SensorEntity] = []
+        if coordinator.data.get("m64") is not None:
+            if not m64_global_added:
+                m64_global_added = True
+                new.extend(Node64M64GlobalSensor(coordinator, entry, d) for d in M64_GLOBAL_SENSORS)
+            for uid in m64_hosts(coordinator.data):
+                if uid not in known_m64:
+                    known_m64.add(uid)
+                    new.extend(Node64M64HostSensor(coordinator, entry, uid, d) for d in M64_HOST_SENSORS)
+        if coordinator.data.get("hp") is not None and not hp_added:
+            hp_added = True
+            new.extend(Node64HoneypotSensor(coordinator, entry, d) for d in HP_SENSORS)
+        if new:
+            async_add_entities(new)
+
+    _add_module_entities()
+    entry.async_on_unload(coordinator.async_add_listener(_add_module_entities))
 
 
 class Node64Base(CoordinatorEntity[Node64Coordinator], SensorEntity):

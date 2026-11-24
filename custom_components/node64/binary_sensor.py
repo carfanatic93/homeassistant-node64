@@ -7,6 +7,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, PROBLEM_STATES
 from .coordinator import Node64Coordinator
 from .entity import check_device_info
+from .modules import (
+    Node64HoneypotProblemBinarySensor,
+    Node64M64ProblemBinarySensor,
+    m64_hosts,
+)
 from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
 
 
@@ -47,6 +52,27 @@ async def async_setup_entry(
 
     _add_proxy_reach()
     entry.async_on_unload(coordinator.async_add_listener(_add_proxy_reach))
+
+    known_m64: set[str] = set()
+    hp_added = False
+
+    @callback
+    def _add_module_problems() -> None:
+        nonlocal hp_added
+        new: list[BinarySensorEntity] = []
+        if coordinator.data.get("m64") is not None:
+            for uid in m64_hosts(coordinator.data):
+                if uid not in known_m64:
+                    known_m64.add(uid)
+                    new.append(Node64M64ProblemBinarySensor(coordinator, entry, uid))
+        if coordinator.data.get("hp") is not None and not hp_added:
+            hp_added = True
+            new.append(Node64HoneypotProblemBinarySensor(coordinator, entry))
+        if new:
+            async_add_entities(new)
+
+    _add_module_problems()
+    entry.async_on_unload(coordinator.async_add_listener(_add_module_problems))
 
 
 class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):

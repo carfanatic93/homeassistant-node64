@@ -53,3 +53,12 @@ class Node64Client:
 
     async def cdn_stats(self) -> dict[str, Any]:
         return await self._get("/api/cdn64/stats?hours=24")
+
+    async def m64_hosts(self) -> list[dict[str, Any]]:
+        return await self._get("/api/monitor64/hosts")
+
+    async def hp_status(self) -> dict[str, Any]:
+        return await self._get("/api/honeypot/status")
+
+    async def hp_stats(self) -> dict[str, Any]:
+        return await self._get("/api/honeypot/stats?since=24h&top=5")
