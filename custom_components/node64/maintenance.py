@@ -1,14 +1,16 @@
+import re
 from datetime import datetime, timezone
 from typing import Any
 
 _ZERO_PREFIX = "0001-01-01"
+_FRACTION = re.compile(r"(\.\d{6})\d+")
 
 
 def _parse(value: str | None) -> datetime | None:
     if not value or value.startswith(_ZERO_PREFIX):
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return datetime.fromisoformat(_FRACTION.sub(r"\1", value.replace("Z", "+00:00")))
     except ValueError:
         return None
 
@@ -36,11 +38,31 @@ def hc_maintenance_for(data: dict[str, Any], token: str) -> tuple[str | None, st
     return None, None
 
 
-def m64_host_maintenance(host: dict[str, Any]) -> tuple[bool, str | None, str | None]:
+def m64_windows(data: dict[str, Any]) -> list[dict[str, Any]]:
+    return (data.get("m64") or {}).get("windows") or []
+
+
+def m64_host_maintenance(
+    host: dict[str, Any], windows: list[dict[str, Any]], uid: str
+) -> tuple[bool, str | None, str | None]:
     maint = host.get("maint")
     if maint is None:
         return False, None, None
-    return True, _iso(maint.get("end")), maint.get("reason") or None
+    until = _iso(maint.get("end"))
+    reason = maint.get("reason") or None
+    if until is None:
+        for window in windows:
+            if not window.get("running") or _iso(window.get("end")) is None:
+                continue
+            if (
+                uid in (window.get("hosts") or [])
+                or (host.get("group") and host["group"] in (window.get("groups") or []))
+                or any(tag in (window.get("tags") or []) for tag in host.get("tags") or [])
+            ):
+                until = _iso(window.get("end"))
+                reason = reason or window.get("title")
+                break
+    return True, until, reason
 
 
 def maintenance_windows(data: dict[str, Any]) -> list[dict[str, Any]]:

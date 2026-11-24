@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN, PROBLEM_STATES, SUB_HEALTHCHECKS, SUB_HONEYPOT, SUB_MONITOR64, SUB_PROXY64
 from .coordinator import Node64Coordinator
 from .entity import check_device_info, subentry_id
-from .maintenance import hc_maintenance_for, m64_host_maintenance, maintenance_windows
+from .maintenance import hc_maintenance_for, m64_host_maintenance, m64_windows, maintenance_windows
 from .modules import Node64HoneypotProblemBinarySensor, Node64M64ProblemBinarySensor, m64_hosts
 from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
 
@@ -140,8 +140,8 @@ class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensor
 
 
 class Node64MaintenanceActiveBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
-    _attr_has_entity_name = False
-    _attr_name = "node64 Wartung aktiv"
+    _attr_has_entity_name = True
+    _attr_name = "Wartung aktiv"
     _unrecorded_attributes = frozenset({"windows"})
 
     def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry) -> None:
@@ -159,8 +159,9 @@ class Node64MaintenanceActiveBinarySensor(CoordinatorEntity[Node64Coordinator], 
     @property
     def is_on(self) -> bool:
         data = self.coordinator.data
+        windows = m64_windows(data)
         return bool(maintenance_windows(data)) or any(
-            m64_host_maintenance(host)[0] for host in m64_hosts(data).values()
+            m64_host_maintenance(host, windows, uid)[0] for uid, host in m64_hosts(data).items()
         )
 
     @property

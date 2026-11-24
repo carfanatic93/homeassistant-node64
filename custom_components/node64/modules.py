@@ -10,7 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import Node64Coordinator
 from .i18n import parse_detail, translate
-from .maintenance import m64_host_maintenance
+from .maintenance import m64_host_maintenance, m64_windows
 
 
 class ModuleSensorDescription(NamedTuple):
@@ -225,11 +225,27 @@ class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        if self._description.key != "problems":
+        if self._description.key not in ("problems", "hosts_with_problems"):
             return None
+        data = self.coordinator.data
+        windows = m64_windows(data)
+        in_maintenance = {uid for uid, host in m64_hosts(data).items() if m64_host_maintenance(host, windows, uid)[0]}
+        if self._description.key == "hosts_with_problems":
+            counted = [uid for uid, host in m64_hosts(data).items() if host.get("problems")]
+            attributes: dict[str, Any] = {
+                "in_wartung": sum(1 for uid in counted if uid in in_maintenance),
+                "ohne_wartung": sum(1 for uid in counted if uid not in in_maintenance),
+            }
+            return attributes
         hosts = []
-        for uid, host in m64_hosts(self.coordinator.data).items():
-            problems = m64_problems(self.coordinator.data, uid)
+        in_count = out_count = 0
+        for uid, host in m64_hosts(data).items():
+            problems = m64_problems(data, uid)
+            count = int(host.get("problems") or 0)
+            if uid in in_maintenance:
+                in_count += count
+            else:
+                out_count += count
             if problems:
                 hosts.append(
                     {
@@ -238,7 +254,7 @@ class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
                         "problem_summary": problem_summary(problems),
                     }
                 )
-        return {"hosts": hosts}
+        return {"hosts": hosts, "in_wartung": in_count, "ohne_wartung": out_count}
 
 
 class Node64HoneypotSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
@@ -289,7 +305,9 @@ class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        in_maintenance, until, reason = m64_host_maintenance(self._host)
+        in_maintenance, until, reason = m64_host_maintenance(
+            self._host, m64_windows(self.coordinator.data), self._uid
+        )
         return {
             **problem_attributes(m64_problems(self.coordinator.data, self._uid), self._host),
             "maintenance": in_maintenance,

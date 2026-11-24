@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- Globaler Wartungssensor heißt jetzt "Wartung aktiv" (Gerätename nur einmal). unique_id unverändert.
+- Monitor64: `maintenance_until` kommt aus dem Fenster, wenn der Host selbst kein Ende liefert. Zeitstempel mit Nanosekunden werden gelesen.
+- Sammelsensoren für Hosts mit Problemen, Probleme gesamt und Checks gestört haben `in_wartung` und `ohne_wartung`. Der Status bleibt unverändert.
+
 ## 0.2.2
 
 - Wartung: Monitor64-Hosts und Healthchecks-Checks zeigen `maintenance`, `maintenance_until`, `maintenance_reason`.

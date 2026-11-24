@@ -151,6 +151,16 @@ class Node64ChecksProblemCountSensor(Node64Base):
             if check.get("state", {}).get("state") in PROBLEM_STATES
         )
 
+    @property
+    def extra_state_attributes(self) -> dict[str, int]:
+        problem = [
+            check
+            for check in self.coordinator.data["checks"].values()
+            if check.get("state", {}).get("state") in PROBLEM_STATES
+        ]
+        in_maintenance = sum(1 for check in problem if check.get("state", {}).get("maintenance"))
+        return {"in_wartung": in_maintenance, "ohne_wartung": len(problem) - in_maintenance}
+
 
 class Node64ChecksTotalSensor(Node64Base):
     _attr_name = "Checks gesamt"
