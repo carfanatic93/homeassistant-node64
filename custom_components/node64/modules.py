@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import Node64Coordinator
+from .entity import hub_id
 from .i18n import parse_detail, translate
 from .maintenance import m64_host_maintenance, m64_windows
 
@@ -143,29 +144,29 @@ HP_SENSORS: tuple[ModuleSensorDescription, ...] = (
 )
 
 
-def m64_host_device(entry: ConfigEntry, uid: str, host: dict[str, Any]) -> DeviceInfo:
+def m64_host_device(entry: ConfigEntry, uid: str, host: dict[str, Any], via: str | None) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_m64_{uid}")},
-        via_device=(DOMAIN, entry.entry_id),
+        via_device_id=via,
         name=host.get("name", uid),
         model=f"Monitor64 ({host.get('kind', 'host')})",
     )
 
 
-def m64_global_device(entry: ConfigEntry) -> DeviceInfo:
+def m64_global_device(entry: ConfigEntry, via: str | None) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_m64")},
-        via_device=(DOMAIN, entry.entry_id),
+        via_device_id=via,
         name="Monitor64",
         manufacturer="ipv64.net",
         model="Monitor64",
     )
 
 
-def honeypot_device(entry: ConfigEntry) -> DeviceInfo:
+def honeypot_device(entry: ConfigEntry, via: str | None) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_honeypot")},
-        via_device=(DOMAIN, entry.entry_id),
+        via_device_id=via,
         name="Honeypot64",
         manufacturer="ipv64.net",
         model="Honeypot64",
@@ -184,7 +185,7 @@ class Node64M64HostSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_m64_{uid}_{description.key}"
-        self._attr_device_info = m64_host_device(entry, uid, self._host)
+        self._attr_device_info = m64_host_device(entry, uid, self._host, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
@@ -211,7 +212,7 @@ class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_m64_{description.key}"
-        self._attr_device_info = m64_global_device(entry)
+        self._attr_device_info = m64_global_device(entry, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
@@ -266,7 +267,7 @@ class Node64HoneypotSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_honeypot_{description.key}"
-        self._attr_device_info = honeypot_device(entry)
+        self._attr_device_info = honeypot_device(entry, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
         self._attr_state_class = description.state_class
 
@@ -289,7 +290,7 @@ class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
         super().__init__(coordinator)
         self._uid = uid
         self._attr_unique_id = f"{entry.entry_id}_m64_{uid}_problem"
-        self._attr_device_info = m64_host_device(entry, uid, self._host)
+        self._attr_device_info = m64_host_device(entry, uid, self._host, hub_id(self.coordinator, entry))
 
     @property
     def _host(self) -> dict[str, Any]:
@@ -324,7 +325,7 @@ class Node64HoneypotProblemBinarySensor(CoordinatorEntity[Node64Coordinator], Bi
     def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_honeypot_service_problem"
-        self._attr_device_info = honeypot_device(entry)
+        self._attr_device_info = honeypot_device(entry, hub_id(self.coordinator, entry))
 
     @property
     def available(self) -> bool:

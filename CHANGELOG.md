@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4
+
+- Fix: Monitor64-Wartungsfenster wurden als Liste gelesen, obwohl sie als Objekt mit `items` kommen. Das ließ den globalen Wartungssensor beim Hinzufügen scheitern.
+- Geräte verknüpfen sich über `via_device_id` mit dem node64-Gerät (Deprecation von `via_device`).
+
 ## 0.2.3
 
 - Globaler Wartungssensor heißt jetzt "Wartung aktiv" (Gerätename nur einmal). unique_id unverändert.

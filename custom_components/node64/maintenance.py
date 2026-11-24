@@ -31,15 +31,19 @@ def _hc_window_active(window: dict[str, Any], now: datetime) -> bool:
 
 def hc_maintenance_for(data: dict[str, Any], token: str) -> tuple[str | None, str | None]:
     now = datetime.now(timezone.utc)
-    for window in data.get("hc_windows") or []:
+    for window in _dicts(data.get("hc_windows")):
         if token in (window.get("tokens") or []) and _hc_window_active(window, now):
             until = None if window.get("repeat") else _iso(window.get("end_at"))
             return until, window.get("name")
     return None, None
 
 
+def _dicts(items: Any) -> list[dict[str, Any]]:
+    return [item for item in items or [] if isinstance(item, dict)]
+
+
 def m64_windows(data: dict[str, Any]) -> list[dict[str, Any]]:
-    return (data.get("m64") or {}).get("windows") or []
+    return _dicts((data.get("m64") or {}).get("windows"))
 
 
 def m64_host_maintenance(
@@ -71,7 +75,7 @@ def maintenance_windows(data: dict[str, Any]) -> list[dict[str, Any]]:
     hosts = m64.get("hosts") or {}
     windows: list[dict[str, Any]] = []
 
-    for window in m64.get("windows") or []:
+    for window in m64_windows(data):
         if not window.get("running"):
             continue
         if window.get("hosts"):
@@ -95,7 +99,7 @@ def maintenance_windows(data: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     checks = data.get("checks") or {}
-    for window in data.get("hc_windows") or []:
+    for window in _dicts(data.get("hc_windows")):
         if not _hc_window_active(window, now):
             continue
         windows.append(

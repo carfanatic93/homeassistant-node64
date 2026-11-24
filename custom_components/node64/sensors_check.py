@@ -7,7 +7,7 @@ from homeassistant.const import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import Node64Coordinator
-from .entity import check_device_info
+from .entity import check_device_info, hub_id
 
 
 class Node64SensorDescription(NamedTuple):
@@ -75,7 +75,7 @@ class Node64CheckSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_check_{token}_{description.key}"
-        self._attr_device_info = check_device_info(entry, token, self._check)
+        self._attr_device_info = check_device_info(entry, token, self._check, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
         if description.unit:
             self._attr_state_class = SensorStateClass.MEASUREMENT

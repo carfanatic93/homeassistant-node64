@@ -58,7 +58,7 @@ class Node64Client:
         return await self._get("/api/monitor64/overview")
 
     async def m64_maintenance(self) -> list[dict[str, Any]]:
-        return await self._get("/api/monitor64/maintenance")
+        return (await self._get("/api/monitor64/maintenance")).get("items") or []
 
     async def hc_maintenance(self) -> list[dict[str, Any]]:
         return await self._get("/api/maintenance")

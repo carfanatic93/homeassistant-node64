@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, PROBLEM_STATES, SUB_HEALTHCHECKS, SUB_HONEYPOT, SUB_MONITOR64, SUB_PROXY64
 from .coordinator import Node64Coordinator
-from .entity import check_device_info, subentry_id
+from .entity import check_device_info, hub_id, subentry_id
 from .maintenance import hc_maintenance_for, m64_host_maintenance, m64_windows, maintenance_windows
 from .modules import Node64HoneypotProblemBinarySensor, Node64M64ProblemBinarySensor, m64_hosts
 from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
@@ -104,7 +104,7 @@ class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensor
         super().__init__(coordinator)
         self._token = token
         self._attr_unique_id = f"{entry.entry_id}_check_{token}"
-        self._attr_device_info = check_device_info(entry, token, self._check)
+        self._attr_device_info = check_device_info(entry, token, self._check, hub_id(self.coordinator, entry))
 
     @property
     def _check(self) -> dict:

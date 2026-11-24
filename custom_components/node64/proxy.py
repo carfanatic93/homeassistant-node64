@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import Node64Coordinator
+from .entity import hub_id
 
 
 class ProxyDescription(NamedTuple):
@@ -58,20 +59,20 @@ CDN_SENSORS: tuple[ProxyDescription, ...] = (
 )
 
 
-def proxy_device_info(entry: ConfigEntry, host_id: int, host: dict[str, Any]) -> DeviceInfo:
+def proxy_device_info(entry: ConfigEntry, host_id: int, host: dict[str, Any], via: str | None) -> DeviceInfo:
     names = host.get("names") or [str(host_id)]
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_proxy_{host_id}")},
-        via_device=(DOMAIN, entry.entry_id),
+        via_device_id=via,
         name=names[0],
         model=f"Proxy-Host ({host.get('kind', 'proxy')})",
     )
 
 
-def cdn_device_info(entry: ConfigEntry) -> DeviceInfo:
+def cdn_device_info(entry: ConfigEntry, via: str | None) -> DeviceInfo:
     return DeviceInfo(
         identifiers={(DOMAIN, f"{entry.entry_id}_cdn64")},
-        via_device=(DOMAIN, entry.entry_id),
+        via_device_id=via,
         name="CDN64",
         manufacturer="ipv64.net",
         model="Proxy64 / CDN64",
@@ -99,7 +100,7 @@ class Node64ProxySensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_proxy_{host_id}_{description.key}"
-        self._attr_device_info = proxy_device_info(entry, host_id, self._host)
+        self._attr_device_info = proxy_device_info(entry, host_id, self._host, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
         if description.unit in ("ms", "d"):
             self._attr_state_class = SensorStateClass.MEASUREMENT
@@ -130,7 +131,7 @@ class Node64CdnSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._attr_name = description.name
         self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_cdn64_{description.key}"
-        self._attr_device_info = cdn_device_info(entry)
+        self._attr_device_info = cdn_device_info(entry, hub_id(self.coordinator, entry))
         self._attr_native_unit_of_measurement = description.unit
 
     @property
@@ -152,7 +153,7 @@ class Node64ProxyReachBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
         super().__init__(coordinator)
         self._host_id = host_id
         self._attr_unique_id = f"{entry.entry_id}_proxy_{host_id}_reach_problem"
-        self._attr_device_info = proxy_device_info(entry, host_id, self._host)
+        self._attr_device_info = proxy_device_info(entry, host_id, self._host, hub_id(self.coordinator, entry))
 
     @property
     def _host(self) -> dict[str, Any]:
