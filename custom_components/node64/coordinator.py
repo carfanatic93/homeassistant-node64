@@ -68,10 +68,16 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_m64(self) -> dict[str, Any] | None:
         try:
-            hosts = await self.client.m64_hosts()
+            overview = await self.client.m64_overview()
         except Node64ConnectError:
             return None
-        return {"hosts": {host["uid"]: host for host in hosts}}
+        problems: dict[str, list[dict[str, Any]]] = {}
+        for problem in overview.get("problems") or []:
+            problems.setdefault(problem["host_uid"], []).append(problem)
+        return {
+            "hosts": {host["uid"]: host for host in overview.get("hosts") or []},
+            "problems": problems,
+        }
 
     async def _async_honeypot(self) -> dict[str, Any] | None:
         try:

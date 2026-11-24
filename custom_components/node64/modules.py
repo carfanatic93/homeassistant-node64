@@ -25,6 +25,40 @@ def m64_hosts(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return m64["hosts"] if m64 else {}
 
 
+def m64_problems(data: dict[str, Any], uid: str) -> list[dict[str, Any]]:
+    m64 = data.get("m64")
+    return (m64.get("problems") or {}).get(uid, []) if m64 else []
+
+
+def _problem_message(problem: dict[str, Any]) -> str:
+    name = problem.get("name") or ""
+    detail = problem.get("detail") or ""
+    if name and detail:
+        return f"{name}: {detail}"
+    return name or detail or "Problem"
+
+
+def problem_summary(problems: list[dict[str, Any]]) -> str:
+    summary = "; ".join(_problem_message(p) for p in problems)
+    return summary if len(summary) <= 250 else summary[:249] + "…"
+
+
+def problem_attributes(problems: list[dict[str, Any]], host: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "problems": [
+            {
+                "message": _problem_message(p),
+                "severity": p.get("state"),
+                "check": p.get("key") or None,
+                "since": p.get("since") or None,
+            }
+            for p in problems
+        ],
+        "problem_summary": problem_summary(problems),
+        "last_check_at": host.get("checked") or None,
+    }
+
+
 def _meter(host: dict[str, Any], label: str) -> Any:
     for meter in host.get("meters", []):
         if meter.get("label") == label:
@@ -165,6 +199,7 @@ class Node64M64HostSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
 
 class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
     _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({"hosts"})
 
     def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, description: ModuleSensorDescription) -> None:
         super().__init__(coordinator)
@@ -183,6 +218,23 @@ class Node64M64GlobalSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
     @property
     def native_value(self) -> Any:
         return self._description.value_fn(m64_hosts(self.coordinator.data))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self._description.key != "problems":
+            return None
+        hosts = []
+        for uid, host in m64_hosts(self.coordinator.data).items():
+            problems = m64_problems(self.coordinator.data, uid)
+            if problems:
+                hosts.append(
+                    {
+                        "host": host.get("name", uid),
+                        "count": len(problems),
+                        "problem_summary": problem_summary(problems),
+                    }
+                )
+        return {"hosts": hosts}
 
 
 class Node64HoneypotSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
@@ -211,6 +263,7 @@ class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
     _attr_has_entity_name = True
     _attr_name = "Probleme"
+    _unrecorded_attributes = frozenset({"problems", "last_check_at"})
 
     def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry, uid: str) -> None:
         super().__init__(coordinator)
@@ -229,6 +282,10 @@ class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
     @property
     def is_on(self) -> bool:
         return (self._host.get("problems") or 0) > 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return problem_attributes(m64_problems(self.coordinator.data, self._uid), self._host)
 
 
 class Node64HoneypotProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
