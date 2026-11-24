@@ -50,6 +50,7 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             "stats": self._stats,
             "proxy": await self._async_proxy(),
             "m64": await self._async_m64(),
+            "hc_windows": await self._async_hc_windows(),
             "hp": await self._async_honeypot(),
         }
 
@@ -69,6 +70,7 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_m64(self) -> dict[str, Any] | None:
         try:
             overview = await self.client.m64_overview()
+            windows = await self.client.m64_maintenance()
         except Node64ConnectError:
             return None
         problems: dict[str, list[dict[str, Any]]] = {}
@@ -77,7 +79,14 @@ class Node64Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {
             "hosts": {host["uid"]: host for host in overview.get("hosts") or []},
             "problems": problems,
+            "windows": windows,
         }
+
+    async def _async_hc_windows(self) -> list[dict[str, Any]]:
+        try:
+            return await self.client.hc_maintenance()
+        except Node64ConnectError:
+            return []
 
     async def _async_honeypot(self) -> dict[str, Any] | None:
         try:

@@ -1,12 +1,16 @@
+from typing import Any
+
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass, BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, PROBLEM_STATES, SUB_HEALTHCHECKS, SUB_HONEYPOT, SUB_MONITOR64, SUB_PROXY64
 from .coordinator import Node64Coordinator
 from .entity import check_device_info, subentry_id
+from .maintenance import hc_maintenance_for, m64_host_maintenance, maintenance_windows
 from .modules import Node64HoneypotProblemBinarySensor, Node64M64ProblemBinarySensor, m64_hosts
 from .proxy import Node64ProxyReachBinarySensor, proxy_hosts
 
@@ -15,6 +19,7 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: Node64Coordinator = hass.data[DOMAIN][entry.entry_id]
+    async_add_entities([Node64MaintenanceActiveBinarySensor(coordinator, entry)])
 
     hc_id = subentry_id(entry, SUB_HEALTHCHECKS)
     if hc_id:
@@ -117,6 +122,7 @@ class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensor
     def extra_state_attributes(self) -> dict:
         check = self._check
         state = check.get("state", {})
+        until, reason = hc_maintenance_for(self.coordinator.data, self._token)
         return {
             "check_type": check.get("type"),
             "target": check.get("target"),
@@ -126,6 +132,37 @@ class Node64CheckBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensor
             "last_reason": state.get("last_reason"),
             "last_message": state.get("last_message"),
             "maintenance": state.get("maintenance", False),
+            "maintenance_until": until,
+            "maintenance_reason": reason,
             "paused": check.get("paused", False),
             "tags": check.get("tags", []),
         }
+
+
+class Node64MaintenanceActiveBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):
+    _attr_has_entity_name = False
+    _attr_name = "node64 Wartung aktiv"
+    _unrecorded_attributes = frozenset({"windows"})
+
+    def __init__(self, coordinator: Node64Coordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_maintenance_active"
+        node = coordinator.data["status"]["node"]
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=f"node64 {node.get('name', '')}".strip(),
+            manufacturer="ipv64.net",
+            model="node64",
+            sw_version=node.get("version"),
+        )
+
+    @property
+    def is_on(self) -> bool:
+        data = self.coordinator.data
+        return bool(maintenance_windows(data)) or any(
+            m64_host_maintenance(host)[0] for host in m64_hosts(data).values()
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"windows": maintenance_windows(self.coordinator.data)}

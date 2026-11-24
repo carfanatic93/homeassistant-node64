@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import Node64Coordinator
 from .i18n import parse_detail, translate
+from .maintenance import m64_host_maintenance
 
 
 class ModuleSensorDescription(NamedTuple):
@@ -52,6 +53,7 @@ def problem_attributes(problems: list[dict[str, Any]], host: dict[str, Any]) -> 
                 "severity": p.get("state"),
                 "check": p.get("key") or None,
                 "since": p.get("since") or None,
+                "suppressed": bool(p.get("maint")),
                 **parse_detail(p.get("detail")),
             }
             for p in problems
@@ -287,7 +289,13 @@ class Node64M64ProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinaryS
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return problem_attributes(m64_problems(self.coordinator.data, self._uid), self._host)
+        in_maintenance, until, reason = m64_host_maintenance(self._host)
+        return {
+            **problem_attributes(m64_problems(self.coordinator.data, self._uid), self._host),
+            "maintenance": in_maintenance,
+            "maintenance_until": until,
+            "maintenance_reason": reason,
+        }
 
 
 class Node64HoneypotProblemBinarySensor(CoordinatorEntity[Node64Coordinator], BinarySensorEntity):

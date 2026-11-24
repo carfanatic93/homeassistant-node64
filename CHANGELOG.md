@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2
+
+- Wartung: Monitor64-Hosts und Healthchecks-Checks zeigen `maintenance`, `maintenance_until`, `maintenance_reason`.
+- Monitor64-Probleme mit `suppressed`, wenn sie in ein Wartungsfenster fallen.
+- Neuer Sensor `binary_sensor.node64_wartung_aktiv` mit `windows`.
+
 ## 0.2.1
 
 - Monitor64-Probleme werden übersetzt (Deutsch, Zahlen mit Komma). Unbekannte Schlüssel zeigen Schlüssel und Parameter.

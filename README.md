@@ -77,3 +77,25 @@ Beispiel (echter Host `ap_flur`, Port-Fehlerrate):
 `since` ist leer, wenn Monitor64 für das Problem keinen Beginn gespeichert hat.
 
 Die Übersetzungstabelle `monitor64_de.json` stammt aus den Monitor64-Sprachdateien. Neue Monitor64-Versionen mit neuen Texten brauchen eine aktualisierte Datei; unbekannte Schlüssel erscheinen als `schluessel (parameter=wert, …)`.
+
+## Wartung
+
+- **Healthchecks:** `maintenance` ist `true`, solange ein Wartungsfenster den Check abdeckt. `maintenance_until` (Ende des Fensters, nur bei einmaligen Fenstern) und `maintenance_reason` (Name des Fensters). Healthchecks-Fenster gelten je Check, nicht für Tags oder global.
+- **Monitor64:** `binary_sensor.<host>_probleme` hat `maintenance`, `maintenance_until` und `maintenance_reason`. Jeder Eintrag in `problems` hat `suppressed: true`, wenn das Problem in ein Wartungsfenster fällt. Der Sensor selbst bleibt on/off nach echtem Zustand.
+- **Proxy64:** kennt keine Wartungsfenster, nur eine Wartungsseite je Host. Dafür gibt es keine Attribute.
+- **`binary_sensor.node64_wartung_aktiv`:** `on`, sobald irgendein Wartungsfenster aktiv ist. Das Attribut `windows` listet die Fenster mit `name`, `scope` (`host`, `group`, `tag`, `check`), `targets`, `start`, `end`, `reason`. Attribut `windows` wird nicht im Recorder gespeichert.
+
+Beispiel während eines Wartungsfensters für NAB6:
+
+```json
+{
+  "maintenance": true,
+  "maintenance_until": "2026-11-24T14:20:07Z",
+  "maintenance_reason": "Update",
+  "problems": [
+    {"message": "...", "severity": "warn", "check": "load", "since": null, "suppressed": true}
+  ]
+}
+```
+
+Die Werte im Beispiel sind konstruiert.
