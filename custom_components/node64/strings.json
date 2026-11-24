@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "node64 verbinden",
+        "description": "Adresse der Node und ein API-Key der Node (Einstellungen > API-Keys).",
+        "data": {
+          "host": "Host oder IP",
+          "port": "Port",
+          "api_key": "API-Key (node64_…)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "node64 ist nicht erreichbar.",
+      "invalid_auth": "Der API-Key wird abgelehnt."
+    },
+    "abort": {
+      "already_configured": "Diese Node ist bereits eingerichtet."
+    }
+  }
+}
