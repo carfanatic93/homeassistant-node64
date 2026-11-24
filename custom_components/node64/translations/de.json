@@ -1,0 +1,68 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "node64 verbinden",
+        "description": "Adresse der Node und ein API-Key der Node (Einstellungen > API-Keys).",
+        "data": {
+          "host": "Host oder IP",
+          "port": "Port",
+          "api_key": "API-Key (node64_…)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "node64 ist nicht erreichbar.",
+      "invalid_auth": "Der API-Key wird abgelehnt."
+    },
+    "abort": {
+      "already_configured": "Diese Node ist bereits eingerichtet."
+    }
+  },
+  "config_subentries": {
+    "healthchecks": {
+      "title": "Healthchecks",
+      "initiate_flow": { "user": "Healthchecks hinzufügen" },
+      "step": {
+        "user": {
+          "title": "Healthchecks hinzufügen",
+          "description": "Legt die Healthchecks der Node als Geräte an."
+        }
+      },
+      "abort": { "already_configured": "Healthchecks sind bereits eingerichtet." }
+    },
+    "monitor64": {
+      "title": "Monitor64",
+      "initiate_flow": { "user": "Monitor64 hinzufügen" },
+      "step": {
+        "user": {
+          "title": "Monitor64 hinzufügen",
+          "description": "Legt die Monitor64-Hosts der Node als Geräte an."
+        }
+      },
+      "abort": { "already_configured": "Monitor64 ist bereits eingerichtet." }
+    },
+    "proxy64": {
+      "title": "Proxy64 / CDN64",
+      "initiate_flow": { "user": "Proxy64 hinzufügen" },
+      "step": {
+        "user": {
+          "title": "Proxy64 hinzufügen",
+          "description": "Legt die Proxy-Hosts und CDN64 als Geräte an."
+        }
+      },
+      "abort": { "already_configured": "Proxy64 ist bereits eingerichtet." }
+    },
+    "honeypot": {
+      "title": "Honeypot64",
+      "initiate_flow": { "user": "Honeypot64 hinzufügen" },
+      "step": {
+        "user": {
+          "title": "Honeypot64 hinzufügen",
+          "description": "Legt das Honeypot64-Gerät an."
+        }
+      },
+      "abort": { "already_configured": "Honeypot64 ist bereits eingerichtet." }
+    }
+  }
+}
