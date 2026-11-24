@@ -105,6 +105,7 @@ class Node64VersionSensor(Node64Base):
 class Node64SensorDescription(NamedTuple):
     key: str
     name: str
+    icon: str
     unit: str | None
     value_fn: Callable[[dict[str, Any], dict[str, Any]], Any]
     diagnostic: bool = False
@@ -119,16 +120,34 @@ def _range(stats: dict[str, Any], rng: str) -> dict[str, Any]:
 
 
 CHECK_SENSORS: tuple[Node64SensorDescription, ...] = (
-    Node64SensorDescription("status", "Status", None, lambda c, s: _state(c).get("state")),
-    Node64SensorDescription("latency", "Antwortzeit", "ms", lambda c, s: _state(c).get("last_latency_ms")),
-    Node64SensorDescription("latency_24h", "Antwortzeit Ø (1 Tag)", "ms", lambda c, s: _range(s, "24h").get("avg_ms")),
-    Node64SensorDescription("latency_30d", "Antwortzeit Ø (30 Tage)", "ms", lambda c, s: _range(s, "30d").get("avg_ms")),
-    Node64SensorDescription("latency_1y", "Antwortzeit Ø (365 Tage)", "ms", lambda c, s: _range(s, "1y").get("avg_ms")),
-    Node64SensorDescription("uptime_24h", "Verfügbarkeit (1 Tag)", "%", lambda c, s: _range(s, "24h").get("up_percent")),
-    Node64SensorDescription("uptime_30d", "Verfügbarkeit (30 Tage)", "%", lambda c, s: _range(s, "30d").get("up_percent")),
-    Node64SensorDescription("uptime_1y", "Verfügbarkeit (365 Tage)", "%", lambda c, s: _range(s, "1y").get("up_percent")),
-    Node64SensorDescription("target", "Ziel", None, lambda c, s: c.get("target"), diagnostic=True),
-    Node64SensorDescription("type", "Typ", None, lambda c, s: c.get("type"), diagnostic=True),
+    Node64SensorDescription("status", "Status", "mdi:lan-connect", None, lambda c, s: _state(c).get("state")),
+    Node64SensorDescription(
+        "latency", "Antwortzeit", "mdi:clock-fast", "ms", lambda c, s: _state(c).get("last_latency_ms")
+    ),
+    Node64SensorDescription(
+        "latency_24h", "Antwortzeit Ø (1 Tag)", "mdi:clock-fast", "ms", lambda c, s: _range(s, "24h").get("avg_ms")
+    ),
+    Node64SensorDescription(
+        "latency_30d", "Antwortzeit Ø (30 Tage)", "mdi:clock-fast", "ms", lambda c, s: _range(s, "30d").get("avg_ms")
+    ),
+    Node64SensorDescription(
+        "latency_1y", "Antwortzeit Ø (365 Tage)", "mdi:clock-fast", "ms", lambda c, s: _range(s, "1y").get("avg_ms")
+    ),
+    Node64SensorDescription(
+        "uptime_24h", "Verfügbarkeit (1 Tag)", "mdi:history", "%", lambda c, s: _range(s, "24h").get("up_percent")
+    ),
+    Node64SensorDescription(
+        "uptime_30d", "Verfügbarkeit (30 Tage)", "mdi:history", "%", lambda c, s: _range(s, "30d").get("up_percent")
+    ),
+    Node64SensorDescription(
+        "uptime_1y", "Verfügbarkeit (365 Tage)", "mdi:history", "%", lambda c, s: _range(s, "1y").get("up_percent")
+    ),
+    Node64SensorDescription(
+        "target", "Ziel", "mdi:ip-network", None, lambda c, s: c.get("target"), diagnostic=True
+    ),
+    Node64SensorDescription(
+        "type", "Typ", "mdi:signal-variant", None, lambda c, s: c.get("type"), diagnostic=True
+    ),
 )
 
 
@@ -146,6 +165,7 @@ class Node64CheckSensor(CoordinatorEntity[Node64Coordinator], SensorEntity):
         self._token = token
         self._description = description
         self._attr_name = description.name
+        self._attr_icon = description.icon
         self._attr_unique_id = f"{entry.entry_id}_check_{token}_{description.key}"
         self._attr_device_info = check_device_info(entry, token, self._check)
         self._attr_native_unit_of_measurement = description.unit
